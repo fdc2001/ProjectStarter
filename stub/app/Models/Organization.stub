@@ -1,0 +1,55 @@
+<?php
+namespace App\Models;
+
+use Filament\Models\Contracts\HasAvatar;
+use Filament\Models\Contracts\HasCurrentTenantLabel;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
+use Spatie\Sluggable\HasSlug;
+use Spatie\Sluggable\SlugOptions;
+
+class Organization extends Model implements HasAvatar, HasCurrentTenantLabel
+{
+    use HasFactory, HasSlug, HasUuids;
+
+    public function getCurrentTenantLabel(): string
+    {
+        return 'Active Company';
+    }
+
+    public static function booted()
+    {
+        self::creating(function (self $model) {
+            $model->slug = Str::slug($model->name);
+        });
+    }
+
+    public function getAvatarUrlAttribute(): ?string
+    {
+        return $this->getFilamentAvatarUrl();
+    }
+
+    public function getFilamentAvatarUrl(): ?string
+    {
+        $emailHash = md5(strtolower(trim($this->name)));
+
+        return "https://www.gravatar.com/avatar/{$emailHash}?d=identicon";
+    }
+
+    /**
+     * Get the options for generating the slug.
+     */
+    public function getSlugOptions(): SlugOptions
+    {
+        return SlugOptions::create()
+            ->generateSlugsFrom('name')
+            ->saveSlugsTo('slug');
+    }
+
+    public function user()
+    {
+        return $this->belongsToMany(\App\Models\User::class);
+    }
+}

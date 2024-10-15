@@ -1,0 +1,17 @@
+<x-mail::message>
+    Hi,
+
+    You have been invited to join the workspace for {{$tenant_name}}.
+
+    To get started, click the link below to accept your invitation and set up your account:
+
+    <x-mail::button :url="$url">
+        Join Workspace
+    </x-mail::button>
+
+    If you have any questions or need assistance, feel free to reach out to our support team.
+
+    Welcome aboard!
+
+    Best regards
+</x-mail::message>

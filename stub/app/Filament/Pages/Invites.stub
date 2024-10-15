@@ -1,0 +1,61 @@
+<?php
+
+
+use App\Models\Invitation;
+use App\Services\System\InvitationService;
+use Filament\Facades\Filament;
+use Filament\Forms\Concerns\InteractsWithForms;
+use Filament\Forms\Contracts\HasForms;
+use Filament\Pages\Page;
+use Filament\Tables\Actions\Action;
+use Filament\Tables\Actions\DeleteAction;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Table;
+
+class Invites extends Page implements HasForms, HasTable
+{
+    use InteractsWithForms;
+    use InteractsWithTable;
+
+    protected static ?string $navigationIcon = 'heroicon-o-paper-airplane';
+
+    protected static string $view = 'filament.pages.invites';
+
+    protected static ?string $navigationGroup = 'Users and Roles';
+
+    public function table(Table $table): Table
+    {
+        return $table
+            ->query(Invitation::query()->where('company_id', Filament::getTenant()->id)->where('accepted', 0))
+            ->columns([
+                TextColumn::make('email')->copyable(),
+                TextColumn::make('invitedBy.name'),
+                TextColumn::make('created_at')->label('Invited At')->date(),
+            ])
+            ->filters([
+                // ...
+            ])
+            ->actions([
+                DeleteAction::make()->requiresConfirmation()->hidden(fn ($record) => $record->email === auth()->user()->email),
+                Action::make('Accept')
+                    ->color('success')
+                    ->icon('heroicon-o-check-circle')
+                    ->action(function (Invitation $record) {
+                        $service = new InvitationService(auth()->user());
+                        $service->accept($record);
+                    })->hidden(fn ($record) => $record->email !== auth()->user()->email),
+                Action::make('Reject')
+                    ->color('danger')
+                    ->icon('heroicon-o-x-circle')
+                    ->action(function (Invitation $record) {
+                        $service = new InvitationService(auth()->user());
+                        $service->reject($record);
+                    })->hidden(fn ($record) => $record->email !== auth()->user()->email),
+            ])
+            ->bulkActions([
+                // ...
+            ]);
+    }
+}

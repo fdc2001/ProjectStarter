@@ -1,0 +1,90 @@
+<?php
+
+namespace App\Services;
+
+use App\Mail\InvitationMail;
+use App\Models\Invitation;
+use App\Models\User;
+use Filament\Facades\Filament;
+use Filament\Notifications\Actions\Action;
+use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
+
+class InvitationService
+{
+    public function __construct(private User $user)
+    {
+    }
+
+    public static function make($email): Invitation
+    {
+        $token = Str::random(60);
+
+        $invitation = new Invitation();
+        $invitation->email = $email;
+        $invitation->token = $token;
+        $invitation->accepted = false;
+        $invitation->invited_by = auth()->id();
+        $invitation->save();
+
+        ${{ RELATION_NAME }} = Filament::getTenant();
+
+        if (User::whereEmail($email)->exists()) {
+            Notification::make()
+                ->title('Invitation to new Workspace')
+                ->body('You have been invited to join the time tracker workspace for '.${{ RELATION_NAME }}->name)
+                ->actions([
+                    Action::make('view')
+                        ->button()
+                        ->url(route('invitations.accept', ['invitation' => $invitation->id])),
+                ])
+                ->sendToDatabase(User::whereEmail($email)->first());
+
+        }
+
+        Mail::to($email)
+            ->send(new InvitationMail($invitation));
+
+        return $invitation;
+    }
+
+    public function accept(Invitation $invitation): bool
+    {
+        if ($invitation->email == $this->user->email) {
+            $invitation->update(['accepted' => true]);
+
+            ${{ RELATION_NAME }} = $invitation->{{ RELATION_NAME }};
+            $user = $this->user;
+            return DB::transaction(function () use ($user, ${{ RELATION_NAME }}, $invitation) {
+                ${{ RELATION_NAME }}->users()->attach($user, ['is_owner' => false, 'active' => true]);
+
+                Notification::make()
+                    ->success()
+                    ->title('Welcome to '.$invitation->{{ RELATION_NAME }}->name.' workspace!')
+                ->send();
+                return true;
+            }, 1);
+
+            return true;
+        } else {
+            Notification::make()
+                ->danger()
+                ->title('Invalid credentials')
+                ->send();
+
+            return false;
+        }
+    }
+
+    public function reject(Invitation $invitation)
+    {
+        $invitation->delete();
+
+        Notification::make()
+            ->success()
+            ->title('Invitation rejected successfully')
+            ->send();
+    }
+}

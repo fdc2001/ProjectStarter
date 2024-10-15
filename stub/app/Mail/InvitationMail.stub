@@ -1,0 +1,38 @@
+<?php
+
+namespace App\Mail;
+
+use App\Models\Invitation;
+use Filament\Facades\Filament;
+use Illuminate\Bus\Queueable;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Mail\Mailable;
+use Illuminate\Queue\SerializesModels;
+
+class InvitationMail extends Mailable
+{
+    use Queueable, SerializesModels;
+
+    private ?Model $tenant;
+
+    public function __construct(private readonly Invitation $invitation)
+    {
+        $this->tenant = Filament::getTenant();
+    }
+
+    public function build(): InvitationMail
+    {
+        $url = route('invitations.accept', ['invitation' => $this->invitation->id]);
+
+        return $this->markdown('emails.invitation', [
+            'url' => $url,
+            'tenant_name' => $this->tenant->name,
+        ])
+            ->subject('Invite to workspace');
+    }
+
+    public function attachments(): array
+    {
+        return [];
+    }
+}

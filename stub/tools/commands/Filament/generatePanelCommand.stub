@@ -1,0 +1,62 @@
+<?php
+
+namespace App\Console\Commands;
+
+use Filament\Support\Commands\InstallCommand;
+use Filament\Support\Commands\UpgradeCommand;
+use Illuminate\Filesystem\Filesystem;
+
+
+class Control extends InstallCommand
+{
+    use \Filament\Support\Commands\Concerns\CanGeneratePanels;
+
+    /**
+     * The name and signature of the console command.
+     *
+     * @var string
+     */
+    protected $signature = 'app:create-filament-panel';
+
+    /**
+     * The console command description.
+     *
+     * @var string
+     */
+    protected $description = 'Command description';
+
+    /**
+     * Execute the console command.
+     */
+    public function handle()
+    {
+        $this->generatePanel('{{ PANEL_NAME }}');
+
+        $this->call(UpgradeCommand::class);
+
+        $this->installUpgradeCommand();
+
+    }
+
+    public function __invoke(): int{
+        return 1;
+    }
+
+    protected function copyStubToApp(string $stub, string $targetPath, array $replacements = []): void
+    {
+        $filesystem = app(Filesystem::class);
+        if (! $this->fileExists($stubPath = base_path("/vendor/filament/support/stubs/{$stub}.stub"))) {
+            $stubPath = $this->getDefaultStubPath() . "/{$stub}.stub";
+        }
+
+        $stub = str($filesystem->get($stubPath));
+
+        foreach ($replacements as $key => $replacement) {
+            $stub = $stub->replace("{{ {$key} }}", $replacement);
+        }
+
+        $stub = (string) $stub;
+
+        $this->writeFile($targetPath, $stub);
+    }
+}

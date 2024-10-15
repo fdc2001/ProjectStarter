@@ -1,0 +1,229 @@
+<?php
+
+namespace App\Livewire;
+
+use App\Models\Invitation;
+use App\Models\User;
+use App\Services\InvitationService;
+use Filament\Actions\Action;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Concerns\InteractsWithForms;
+use Filament\Forms\Contracts\HasForms;
+use Filament\Forms\Form;
+use Filament\Notifications\Notification;
+use Filament\Pages\Concerns\InteractsWithFormActions;
+use Filament\Pages\Dashboard;
+use Filament\Pages\SimplePage;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password;
+
+class AcceptInvitation extends SimplePage implements HasForms
+{
+    use InteractsWithFormActions, InteractsWithForms;
+
+    protected static string $view = 'livewire.accept-invitation';
+
+    public string $invitation;
+
+    public bool $userExists = false;
+
+    private Invitation $invitationModel;
+
+    public ?array $data = [];
+
+    private InvitationService $invitationService;
+
+    public function __construct()
+    {
+        $this->invitationService = new InvitationService(Auth::user());
+    }
+
+    public function mount(): void
+    {
+        $this->invitationModel = Invitation::findOrFail($this->invitation);
+        if (User::where('email', $this->invitationModel->email)->exists()) {
+            $this->userExists = true;
+        }
+
+        if ($this->invitationModel->accepted == 1) {
+            Notification::make()
+                ->danger()
+                ->title('Invitation already accepted')
+                ->send();
+            $this->redirect(route('filament.app.auth.login'));
+        }
+
+        $this->registerForm->fill([
+            'email' => $this->invitationModel->email,
+        ]);
+        $this->loginForm->fill([
+            'email' => $this->invitationModel->email,
+        ]);
+    }
+
+    protected function getForms(): array
+    {
+        return [
+            'registerForm',
+            'loginForm',
+        ];
+    }
+
+    public function loginForm(Form $form)
+    {
+        return $form->schema([
+            TextInput::make('email')
+                ->label('Email')
+                ->email()
+                ->readonly()
+                ->disabled(),
+            TextInput::make('password')
+                ->label('Password')
+                ->password()
+                ->required(),
+        ])
+            ->statePath('data');
+    }
+
+    public function registerForm(Form $form): Form
+    {
+        return $form->schema([
+            TextInput::make('first_name')
+                ->label('First Name')
+                ->required(),
+            TextInput::make('last_name')
+                ->label('Last Name')
+                ->required(),
+            TextInput::make('email')
+                ->label('Email')
+                ->email()
+                ->disabled()
+                ->required(),
+            TextInput::make('password')
+                ->label('Password')
+                ->password()
+                ->rule(Password::default())
+                ->autocomplete('new-password')
+                ->dehydrateStateUsing(fn ($state): string => Hash::make($state))
+                ->required()
+                ->same('passwordConfirmation'),
+            TextInput::make('passwordConfirmation')
+                ->label('Confirm Password')
+                ->autocomplete('new-password')
+                ->password()
+                ->required()
+                ->dehydrated(false),
+        ])
+            ->statePath('data');
+    }
+
+    public function create(): void
+    {
+        $this->invitationModel = Invitation::find($this->invitation);
+        if (! Auth::check()) {
+            if (User::where('email', $this->data['email'])->exists()) {
+                Notification::make()
+                    ->danger()
+                    ->title('Email already exists')
+                    ->send();
+
+                return;
+            }
+
+            $user = User::create([
+                'first_name' => $this->data['first_name'],
+                'last_name' => $this->data['last_name'],
+                'email' => $this->data['email'],
+                'password' => $this->data['password'],
+            ]);
+        } else {
+            $user = Auth::user();
+        }
+
+        $this->invitationModel->update(['accepted' => true]);
+
+        $this->invitationModel->{{ RELATION_NAME }}->users()->attach($user, ['is_owner' => false, 'active' => true]);
+        \auth()->login($user);
+
+        Notification::make()
+            ->success()
+            ->title('Welcome to '.$this->invitationModel->{{ RELATION_NAME }}->name.' workspace!')
+            ->send();
+
+        $this->redirect(Dashboard::getUrl(['tenant' => $this->invitationModel->{{ RELATION_NAME }}->slug]));
+    }
+
+    public function login()
+    {
+        $this->invitationModel = Invitation::find($this->invitation);
+        $password = $this->data['password'];
+
+        if (! Auth::attempt(['email' => $this->data['email'], 'password' => $password])) {
+            Notification::make()
+                ->danger()
+                ->title('Invalid credentials')
+                ->send();
+
+            return;
+        }
+
+        $this->accept();
+    }
+
+    public function accept(): void
+    {
+        if ($this->invitationService->accept(Invitation::find($this->invitation))) {
+            $this->redirect(Dashboard::getUrl(['tenant' => $this->invitationModel->{{ RELATION_NAME }}->slug]));
+        }
+    }
+
+    public function logout()
+    {
+        $this->invitationModel = Invitation::find($this->invitation);
+
+        Auth::logout();
+
+    }
+
+    public function getRegisterFormAction()
+    {
+        return Action::make('create')
+            ->label('Register')
+            ->submit('create');
+
+    }
+
+    public function getAcceptInvitationFormAction()
+    {
+        return Action::make('accept')
+            ->label('Accept Invitation')
+            ->submit('accept');
+    }
+
+    public function getLoginFormAction()
+    {
+        return Action::make('login')
+            ->label('Login and accept invitation')
+            ->submit('login');
+
+    }
+
+    /**
+     * @return array<Action>
+     */
+    public function getFormActions(): array
+    {
+        return [];
+    }
+
+    public function getSubheading(): string
+    {
+        return $this->invitationModel->{{ RELATION_NAME }}->name.' has invited you to join their team';
+    }
+
+    public function hasLogo(): bool
+    {
+        return false;
+    }
+}

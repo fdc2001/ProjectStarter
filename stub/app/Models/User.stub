@@ -1,0 +1,153 @@
+<?php
+
+namespace App\Models;
+
+// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Filament\Facades\Filament;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Models\Contracts\HasAvatar;
+use Filament\Models\Contracts\HasDefaultTenant;
+use Filament\Models\Contracts\HasName;
+use Filament\Models\Contracts\HasTenants;
+use Filament\Panel;
+use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\URL;
+use Tapp\FilamentInvite\Notifications\SetPassword;
+
+class User extends Authenticatable implements FilamentUser, HasAvatar, HasDefaultTenant, HasName, HasTenants
+{
+    use HasFactory, HasUuids, Notifiable, SoftDeletes;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
+    protected $fillable = [
+        'name',
+        'email',
+        'email_verified_at',
+        'password',
+        'remember_token',
+    ];
+
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var array<int, string>
+     */
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+        ];
+    }
+
+    public function {{ RELATION_NAME }}(): BelongsToMany
+    {
+        return $this->belongsToMany({{ RELATION_CLASS }}::class)->withTimestamps();
+    }
+
+    public function canAccessPanel(Panel $panel): bool
+    {
+        return true;
+    }
+
+    public function canAccessTenant(Model $tenant): bool
+    {
+        return $this->{{ RELATION_NAME }}()->wherePivot('active', true)->get()->contains($tenant);
+    }
+
+    public function getTenants(Panel $panel): array|Collection
+    {
+        return $this->{{ RELATION_NAME }}()->wherePivot('active', true)->get();
+    }
+
+    public function getActiveAttribute()
+    {
+        if (Filament::getTenant() && $this->current{{ RELATION_CLASS }}()) {
+            return $this->current{{ RELATION_CLASS }}()->pivot->active;
+        }
+
+        return [];
+    }
+
+    public function current{{ RELATION_CLASS }}(): ?{{ RELATION_CLASS }}
+    {
+        return $this->{{ RELATION_NAME }}()->withPivot('active', 'is_owner')->where('id', Filament::getTenant()?->id)->first();
+    }
+
+    public function getFilamentName(): string
+    {
+        return $this->name ?? '';
+    }
+
+    public function latest{{ RELATION_CLASS }}(): BelongsTo
+    {
+        return $this->belongsTo({{ RELATION_CLASS }}::class, 'last_{{ RELATION_NAME }}_id');
+    }
+
+    public function getDefaultTenant(Panel $panel): ?Model
+    {
+        return $this->latest{{ RELATION_CLASS }} ?? $this->{{ RELATION_NAME }}->first();
+    }
+
+    public function getFilamentAvatarUrl(): ?string
+    {
+           $emailHash = md5(strtolower(trim($this->email)));
+
+        return "https://www.gravatar.com/avatar/{$emailHash}?d=identicon";
+    }
+
+    public function avatar(): Attribute
+    {
+        return new Attribute(get: function () {
+            return $this->getFilamentAvatarUrl();
+        });
+    }
+
+    public function isSuperAdmin()
+    {
+        return $this->current{{ RELATION_CLASS }}()?->pivot->is_owner;
+    }
+
+    public function getResetPasswordUrl(string $token, array $parameters = []): string
+    {
+        return URL::signedRoute(
+            'filament.admin.auth.password-reset.reset',
+            [
+                'email' => $this->email,
+                'token' => $token,
+                ...$parameters,
+            ],
+        );
+    }
+
+    public function sendPasswordSetNotification($token)
+    {
+        Notification::send($this, new SetPassword($token));
+    }
+}

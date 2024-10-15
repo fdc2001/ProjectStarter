@@ -1,0 +1,32 @@
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\User;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Artisan;
+
+class UserSeeder extends Seeder
+{
+    public function run(): void
+    {
+        Artisan::call('migrate:fresh');
+        \App\Models\User::factory(10)->create();
+        \App\Models\{{ Class_NAME }}::factory(2)->create();
+
+        User::each(function ($user) {
+            \App\Models\{{ Class_NAME }}::each(function ($company) use ($user) {
+                $user->{{ RELATION_NAME }}()->attach($company);
+            });
+        });
+
+        $user = User::factory()->create([
+            'email' => 'admin@example.com',
+            'name' => 'admin',
+        ]);
+
+        \App\Models\{{ Class_NAME }}::each(function (${{ RELATION_NAME }}) use ($user) {
+            $user->{{ RELATION_NAME }}()->attach(${{ RELATION_NAME }}, ['is_owner' => true]);
+        });
+    }
+}

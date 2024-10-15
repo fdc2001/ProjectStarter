@@ -1,0 +1,42 @@
+<?php
+
+namespace App\Models;
+
+use Filament\Facades\Filament;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Notifications\Notifiable;
+
+class Invitation extends Model
+{
+    use HasFactory, HasUuids, Notifiable, SoftDeletes;
+
+    protected $fillable = ['email', 'token', 'accepted'];
+
+    public function {{ RELATION_NAME }}()
+    {
+        return $this->belongsTo({{ RELATION_CLASS }}::class);
+    }
+
+    public static function booted()
+    {
+        static::creating(function ($invitation) {
+            if (Filament::hasTenancy() && Filament::getTenant()) {
+                $invitation->{{ RELATION_NAME }}_id = Filament::getTenant()->id;
+            }
+        });
+    }
+
+    public function invitedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'invited_by', 'id');
+    }
+
+    public static function findByEmail($email): \Illuminate\Database\Eloquent\Collection
+    {
+        return self::query()->where('email', $email)->where('accepted', false)->get();
+    }
+}

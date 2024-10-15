@@ -1,0 +1,27 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('invitations', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->string('email');
+            $table->foreignIdFor(\App\Models\{{ RELATION_CLASS }}::class)->constrained();
+            $table->string('token');
+            $table->boolean('accepted')->default(false);
+            $table->foreignIdFor(\App\Models\User::class, 'invited_by');
+            $table->timestamps();
+            $table->softDeletes();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('invitations');
+    }
+};

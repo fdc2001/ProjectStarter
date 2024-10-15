@@ -1,0 +1,38 @@
+<?php
+
+namespace App\Filament\Pages;
+
+use Filament\Facades\Filament;
+use Filament\Forms\Components\Checkbox;
+use Filament\Forms\Components\Grid;
+use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Tabs;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Form;
+use Filament\Pages\Tenancy\EditTenantProfile;
+
+class Edit{{ Class_NAME }}  extends EditTenantProfile
+{
+    public static function getLabel(): string
+    {
+        return '{{ Class_NAME }} Settings';
+    }
+
+    public function form(Form $form): Form
+    {
+        return $form
+            ->schema([
+                Section::make('{{ Class_NAME }} information')->schema([
+                    TextInput::make('name')
+                        ->required()
+                        ->unique(ignorable: $form->getRecord()),
+                    TextInput::make('url')
+                        ->url()
+                        ->nullable()
+                        ->suffixIcon('heroicon-m-globe-alt')
+                        ->label('Website'),
+                ])
+            ]);
+    }
+}

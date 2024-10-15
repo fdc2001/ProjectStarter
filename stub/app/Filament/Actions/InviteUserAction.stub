@@ -1,0 +1,49 @@
+<?php
+
+namespace App\Filament\Actions;
+
+use App\Filament\Resources\UserResource;
+use App\Services\InvitationService;
+use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
+
+class InviteUserAction extends Action
+{
+    public static function getDefaultName(): ?string
+    {
+        return 'inviteUser';
+    }
+
+    public function setUp(): void
+    {
+        $this->defaultView(static::BUTTON_VIEW);
+
+        $this->form($this->getSchema())->action(fn ($data) => $this->handleAction($data));
+        $this->modal();
+        $this->button();
+        $this->icon('heroicon-o-plus-circle');
+        $this->label('Invite User');
+    }
+
+    private function getSchema(): array
+    {
+        return [
+            TextInput::make('email')
+                ->label('Email')
+                ->email()
+                ->required(),
+        ];
+    }
+
+    public function handleAction($data): void
+    {
+        InvitationService::make($data['email']);
+
+        Notification::make()
+            ->success()
+            ->title('User Invited successfully')
+            ->send();
+    }
+}

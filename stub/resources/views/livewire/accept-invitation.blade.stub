@@ -1,0 +1,40 @@
+<x-filament-panels::page.simple>
+
+    @if(!\Illuminate\Support\Facades\Auth::check())
+    @if($userExists)
+    <x-filament-panels::form wire:submit="login">
+        {{$this->loginForm}}
+        <x-filament-panels::form.actions
+            :actions="[$this->getLoginFormAction()]"
+            :full-width="true"
+        />
+    </x-filament-panels::form>
+    @else
+    <x-filament-panels::form wire:submit="create">
+        {{$this->registerForm}}
+        <x-filament-panels::form.actions
+            :actions="[$this->getRegisterFormAction()]"
+            :full-width="true"
+        />
+    </x-filament-panels::form>
+    @endif
+    @else
+    @if($this->invitationModel->email==auth()->user()->email)
+    <x-filament-panels::form wire:submit="accept">
+        <x-filament-panels::form.actions
+            :actions="[$this->getAcceptInvitationFormAction()]"
+            :full-width="true"
+        />
+    </x-filament-panels::form>
+    @else
+    <div class="text-center">
+        <h4>To accept the invitation, please logout from your account.</h4>
+        <br/>
+        <h4>This invitation is to <br/> <b>{{$this->invitationModel->email}}</b></h4>
+        <x-filament::button class="mt-3" wire:click="logout()">
+            Logout
+        </x-filament::button>
+    </div>
+    @endif
+    @endif
+</x-filament-panels::page.simple>
