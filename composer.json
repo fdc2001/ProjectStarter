@@ -48,5 +48,5 @@
     },
     "minimum-stability": "stable",
     "prefer-stable": true,
-    "bin": ["builds/projectWizard"]
+    "bin": ["builds/projectStarter"]
 }
